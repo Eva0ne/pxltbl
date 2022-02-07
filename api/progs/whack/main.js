@@ -3,17 +3,25 @@
 // Put variables here that you need to persist between loops.
 var failMessage = 'Over'; // Message that appears when game is over.
 var welcomeMessage = 'Whack a Mole'; // Title of game.
-var moleCorner = 0;  // 0 = top left, 1 = top right ...
-var moleVisible = false;
-var moleWhacked = false;
-var moleWhackedTime = 0; // Time when mole was whacked.
-var moleAppearTime = 0; // Time when mole appeared.
-var timeLimit = 3000; // Time given to whack mole.
+var hitMessage = 'Hit!'; // Message when mole is hit.
+var timeLimit = 0; // Time given to whack mole.
 var score = 0; // One mole = one point.
 var gameState = 0; // Switch that cycles between welcome screen, main game and game end.
 
+
+
+var moleCorner = 0;  // 0 = top left, 1 = top right ...
+
+var moleVisible = false; // Mle is not visible.
+var moleWhacked = false; // Mole has not been whacked.
+var moleWhackedTime = 0; // Time when mole was whacked.
+var moleAppearTime = 0; // Time when mole appeared.
+
+
+
+
+// Code here gets executed once at program startup.
 exports.setup = function(api) {
-    // Code here gets executed once at program startup.
 
     // Blanks the screen
     api.blank(0, 0, 0);
@@ -25,15 +33,19 @@ exports.loop = function(api) {
     //need to add switch here on gameState
     switch (gameState) {
         case 0:
-            //welcome screen
+            // Welcome screen
             setupGame(api);
             break;
         case 1:
+            // Speed select
+            setSpeed(api);
+            break;
+        case 2:
             // Main game
             playGame(api);
             break;
-        case 2:
-            //game over screen
+        case 3:
+            // Game over screen
             endOfGame(api);
             break;
 
@@ -45,13 +57,44 @@ function setupGame(api) {
     //if any button pressed,  gameState++;
     api.blank(0, 0, 0);
     api.setDrawColor(106,13,173); // Purple
+    api.fillBox(0,0,32,2); // Draws borders
+    api.fillBox(0,16,32,2);
     api.text(welcomeMessage,2,5); // Displays game name.
     if (api.getButtons().any) {
-        // Triggers main game when any button is pressed. Will include touch soon.
+        // Triggers main game when any button is pressed. Need to include touch.
         api.blank(0, 0, 0);
         gameState = 1;
-        moveMole(api);// Set mole to random corner.
     }
+}
+
+// Allows user to select game speed.
+function setSpeed(api) {
+
+    api.setDrawColor(106,13,173);
+    api.text('Speed:',1,1);
+    api.setDrawColor(0,255,0);
+    api.fillBox(5,13,3,3);
+    api.setDrawColor(255,191,0);
+    api.fillBox(15,13,3,3);
+    api.setDrawColor(255,0,0);
+    api.fillBox(25,13,3,3);
+
+    if (api.isTouchInBounds(5,13,3,3)) {
+        timeLimit = 4000;
+        gameState = 2;
+        moveMole(api); // Set mole to random corner.
+    }
+    else if (api.isTouchInBounds(15,13,3,3)) {
+        timeLimit = 3000;
+        gameState = 2;
+        moveMole(api);
+    }
+    else if (api.isTouchInBounds(25,13,3,3)) {
+        timeLimit = 2000;
+        gameState = 2;
+        moveMole(api);
+    }
+
 }
 
 // Game mechanics.
@@ -102,7 +145,10 @@ function playGame(api) {
         // draw the mole in the correct corner
         // has it been whacked
         if(moleWhacked) {
+
             api.setDrawColor(255,0,0);
+            api.playWav('sfx_damage_hit3');
+            api.text(hitMessage,9,5);
         } else {
             api.setDrawColor(255,255,255);
         }
@@ -115,12 +161,9 @@ function playGame(api) {
     }
 
 
-
-
     // switch for each corner
     switch (moleCorner) {
         case 0:
-
             // does the button pressed == the correct corner?
             if(api.getButtons().topLeft || api.getButtons().leftTop || api.isTouchInBounds(0,0,4,4)) {
                 // if so display the mole whacked
@@ -166,9 +209,6 @@ function playGame(api) {
             }
         }
 
-
-
-
     }
 
 
@@ -178,10 +218,10 @@ function endOfGame(api) {
     //display score / game over msg
     api.blank(0, 0, 0);
     api.setDrawColor(255, 0, 0);
-    api.text(failMessage,2,2);
-    api.text('SC=' + score,2,10);
+    api.text(failMessage,4,1);
+    api.text('SC=' + score,4,9);
 
-    //give option to exit, or option to restart
+    // give option to exit, or option to restart
     if (api.getButtons().left || api.isTouchInBounds(0,0,16,18)) {
         api.exit();
     } else if (api.getButtons().right || api.isTouchInBounds(17,0,16,18)) {
@@ -194,23 +234,21 @@ function endOfGame(api) {
 
 
 function gameOver(api) {
-    //advance gameState
-    gameState = 2;
-
-    //play sound
+    // advance gameState
+    gameState = 3;
+    // play sound
     api.playWav('looser');
-
 
 }
 
 function moveMole(api) {
-    // set the mole to a random corner
+    // Set the mole to a random corner
     moleCorner = Math.floor(Math.random() * 4);
-    // set the mole to be visible
+    // Set the mole to be visible
     moleVisible = true;
-    // and not whacked
+    // And not whacked
     moleWhacked = false;
-    //blank the screen
+    // Blank the screen
     api.blank(0, 0, 0);
     moleAppearTime = api.getMillis();
 

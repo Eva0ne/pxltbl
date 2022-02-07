@@ -21,6 +21,7 @@ const http = require('http');                               // HTTP tools
 const log = require('fancy-log');                           // Better debug messaging a support for colors
 const c = require('ansi-colors');                           // Easily switch between different ANSI colors, great for console logging.
 
+let hidController = null;                                   // This is only defined after we test for existence of RasPi
 
 /**
  * This function is used to set up a singleton instance of our API class.
@@ -234,7 +235,7 @@ const pxlTbl = ( function() {
             try {
                 const raspi = require('raspi');
                 const board = require('raspi-board');
-                const hidController = require('node-hid');
+                hidController = require('node-hid');
 
 
                 raspi.init(() => {
