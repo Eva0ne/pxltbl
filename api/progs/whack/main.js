@@ -1,17 +1,29 @@
 // Whack a mole prog.
 
+// Settings
+
+
 // Put variables here that you need to persist between loops.
 var failMessage = 'Over'; // Message that appears when game is over.
 var welcomeMessage = 'Whack a Mole'; // Title of game.
 var hitMessage = 'Hit!'; // Message when mole is hit.
-var timeLimit = 0; // Time given to whack mole.
-var score = 0; // One mole = one point.
+
+// skill vars
+var moleVisibleTime = 0;
+var numMoles = 0;
+var missLimit = 0;
+var nextMoleMinTime = 0;
+var nextMoleMaxTime = 0;
+
+// game vars
+var score = 0; // One mole hit = one point.
+var misses = 0; // Number of misses
 var gameState = 0; // Switch that cycles between welcome screen, main game and game end.
 var nextPopupTime = 0;
+var missed = false;
+var reduceTime = 50;
 
-
-var numMoles = 4;
-
+// moles
 var moleX = [];
 var moleY = [];
 var moleVisible = []; // Mole is visible.
@@ -31,21 +43,24 @@ exports.setup = function(api) {
 
 exports.loop = function(api) {
 
-    //need to add switch here on gameState
     switch (gameState) {
         case 0:
-            // Welcome screen
-            setupGame(api);
+            // Welcome Screen
+            showWelcome(api);
             break;
         case 1:
-            // Speed select
-            setSpeed(api);
+            // Setup game
+            setupGame(api);
             break;
         case 2:
+            // Speed select
+            setDifficulty(api);
+            break;
+        case 3:
             // Main game
             playGame(api);
             break;
-        case 3:
+        case 4:
             // Game over screen
             endOfGame(api);
             break;
@@ -53,8 +68,10 @@ exports.loop = function(api) {
     }
 }
 
-function setupGame(api) {
+function showWelcome(api) {
 
+    // Draw welcome screen
+    api.setDrawColor(130,64,191);
     api.blank(0, 0, 0);
     api.fillBox(0,0,32,2); // Draws borders
     api.fillBox(0,16,32,2);
@@ -62,24 +79,22 @@ function setupGame(api) {
     api.setDrawColor(106,13,173); // Purple
     api.clearInputs();
 
-    // setup our moles
-    for(var i=0; i < numMoles; i++) {
-        moleX[i] = Math.floor(Math.random() * (api.getScreenWidth() - 2)) + 1;
-        moleY[i] = Math.floor(Math.random() * (api.getScreenHeight() - 2)) + 1;
-        moleVisible[i] = false;
-        moleWhacked[i] = false;
-    }
+    gameState++;
 
+}
+
+function setupGame(api) {
     //if any button pressed,  gameState++;
-    if (api.getButtons().any || api.getTouch) {
+    if (api.getButtons().any || api.getTouch().length) {
+
         // Triggers main game when any button is pressed. Need to include touch.
         api.blank(0, 0, 0);
-        gameState = 1;
+        gameState++;
     }
 }
 
-// Allows user to select game speed.
-function setSpeed(api) {
+// Allows user to select game difficulty.
+function setDifficulty(api) {
 
     api.setDrawColor(106,13,173);
     api.text('Speed:',1,1);
@@ -91,20 +106,42 @@ function setSpeed(api) {
     api.fillBox(25,13,3,3);
     api.clearInputs();
 
-    if (api.isTouchInBounds(5,13,3,3)) {
-        timeLimit = 4000;
-        gameState = 2;
-        resetScreen(api); // Set mole to random corner.
-    }
-    else if (api.isTouchInBounds(15,13,3,3)) {
-        timeLimit = 3000;
-        gameState = 2;
+    // Could be optimised
+    if (api.isTouchInBounds(5,13,3,3)) { // Easy
+        numMoles = 4;
+        missLimit = 3;
+        moleVisibleTime = 3000;
+        nextMoleMinTime = 3000;
+        nextMoleMaxTime = 4000;
+        gameState++;
         resetScreen(api);
     }
-    else if (api.isTouchInBounds(25,13,3,3)) {
-        timeLimit = 2000;
-        gameState = 2;
+    else if (api.isTouchInBounds(15,13,3,3)) { // Medium
+        numMoles = 5;
+        missLimit = 5;
+        moleVisibleTime = 2000;
+        nextMoleMinTime = 2000;
+        nextMoleMaxTime = 3000;
+        gameState++;
         resetScreen(api);
+    }
+    else if (api.isTouchInBounds(25,13,3,3)) { // Hard
+        numMoles = 6;
+        missLimit = 7;
+        moleVisibleTime = 1000;
+        nextMoleMinTime = 1000;
+        nextMoleMaxTime = 2000;
+        gameState++;
+        resetScreen(api);
+    }
+
+    // setup our moles
+    for(var i=0; i < numMoles; i++) {
+
+        moleX[i] = Math.floor(Math.random() * (api.getScreenWidth() - 3)) + 1;
+        moleY[i] = Math.floor(Math.random() * (api.getScreenHeight() - 3)) + 1;
+        moleVisible[i] = false;
+        moleWhacked[i] = false;
     }
 
 }
@@ -112,25 +149,60 @@ function setSpeed(api) {
 // Game mechanics.
 function playGame(api) {
 
-    for(var i=0; i < numMoles; i++) {
 
+    for (var i = 0; i < numMoles; i++) {
 
         // has mole been whacked?
-        if(api.isTouchInBounds(moleX[i],moleY[i],2,2)) {
-            console.log('Click');
-            if(moleVisible[i]) {
-                moleWhackedTime[i] = api.getMillis();
-                moleWhacked[i] = true;
-                resetScreen(api);
-            } else {
+        if(api.getTouch().length) {
+
+            if (api.isTouchInBounds(moleX[i], moleY[i], 2, 2)) {
+
+                if (moleVisible[i] && !moleWhacked[i]) {
+                    api.log('Whack!');
+                    moleWhackedTime[i] = api.getMillis();
+                    moleWhacked[i] = true;
+                    score++;
+                    moleVisibleTime -= reduceTime;
+                    nextMoleMaxTime -= reduceTime;
+                    nextMoleMinTime -= reduceTime;
+                    api.log('Score: ' + score);
+                    api.log('Visible Time: ' + moleVisibleTime);
+                    api.log('Max Time: ' + nextMoleMaxTime);
+                    api.log('Min Time: ' + nextMoleMinTime);
+                }
+
+            } else if (!missed && !api.isTouchInBounds(moleX[i], moleY[i], 2, 2)) {
                 //you missed!
-                api.text('Miss!');
-                score -= 1;
+                api.log('miss!');
+                misses++;
+                api.log('misses: ' + misses);
+                missed = true;
+                if(misses == missLimit){
+                    gameState++;
+                }
             }
+        } else {
+            missed = false;
+        }
+
+
+        // check for moles that need to hide
+        if(moleVisible[i] && api.getMillis() > moleHideTime[i]) {
+            api.log('Hide mole time');
+            moleWhacked[i] = false;
+            moleVisible[i] = false;
+        }
+
+        // check for old whacked moles
+        if(moleVisible[i] && moleWhacked[i] && api.getMillis() - moleWhackedTime[i] > 200) {
+            api.log('Hide mole whacked');
+            moleWhacked[i] = false;
+            moleVisible[i] = false;
         }
         //draw mole (could be optimised)
-        drawMole(i,api);
+        drawMole(i, api);
     }
+
     popupMole(api);
 
 }
@@ -143,10 +215,8 @@ function endOfGame(api) {
     api.text('SC=' + score,4,9);
 
     // give option to exit, or option to restart
-    if (api.getButtons().left || api.isTouchInBounds(0,0,16,18)) {
+    if (api.getButtons().any) {
         api.exit();
-    } else if (api.getButtons().right || api.isTouchInBounds(17,0,16,18)) {
-        gameState = 0;
     }
 }
 
@@ -164,9 +234,10 @@ function gameOver(api) {
 
 function resetScreen(api) {
     //more like reset screen
-    console.log('Clear');
+    api.log('Clear');
     api.blank(0, 0, 0);
-    moleAppearTime = api.getMillis();
+    missed = true;
+
 
 }
 
@@ -174,7 +245,10 @@ function drawMole(mole,api) {
 
     api.setDrawColor(106,13,173);
     api.fillBox(moleX[mole]-1,moleY[mole]-1,4,4);
-    if(moleVisible[mole]) {
+
+    if(moleWhacked[mole]) {
+        api.setDrawColor(255, 0, 0);
+    } else if(moleVisible[mole]) {
         api.setDrawColor(255, 255, 255);
     } else {
         api.setDrawColor(0, 0, 0);
@@ -187,7 +261,6 @@ function popupMole(api) {
 
     //is the next popup time in the past?
     if(nextPopupTime < api.getMillis()) {
-
 
         //pick a random mole that's not popped up (if all moles are visible do nothing)
         var isMoleHidden = false;
@@ -209,11 +282,12 @@ function popupMole(api) {
             moleVisible[randomMole] = true;
             moleWhacked[randomMole] = false;
             moleAppearTime[randomMole] = api.getMillis();
-            moleHideTime[randomMole] = moleAppearTime[randomMole] + 3000;
+            moleHideTime[randomMole] = moleAppearTime[randomMole] + moleVisibleTime;
+
         }
 
         //set the delay before the next popup
-        nextPopupTime = api.getMillis() + 1000 + Math.floor(Math.random() * 1000);
+        nextPopupTime = api.getMillis() + nextMoleMinTime + Math.floor(Math.random() * nextMoleMaxTime-nextMoleMinTime);
 
     }
 }
